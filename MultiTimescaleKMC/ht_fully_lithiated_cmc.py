@@ -32,13 +32,13 @@ class DRX_CMC(Common_Class):
     """
     
     
-    def __init__(self, comp_Li: float, comp_Ti: float, processor_file: str, sampling_steps: int, T_sample: int):
+    def __init__(self, comp_Li: float, comp_Ti: float, processor_file: str, sampling_steps: int, T_sample: int, savetofile: str):
         super().__init__(processor_file)
         
         self.sampling_steps = sampling_steps
         self.T_sample = T_sample
         
-        self.HT_Configuration_filename = "HT_DRX.pickle"
+        self.HT_Configuration_filename = savetofile
         
         self.comp_Li = comp_Li
         self.comp_Ti = comp_Ti

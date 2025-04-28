@@ -29,10 +29,10 @@ class Delithiated_RT_CMC(Common_Class):
         
     """
 
-    def __init__(self, comp_Li, processor_file: str, sampling_steps: int, RT_Configuration_filename: str = "Delithiated_RT_DRX.pickle"):
+    def __init__(self, comp_Li, processor_file: str, sampling_steps: int, HTDRXpickle: str, RT_Configuration_filename: str = "Delithiated_RT_DRX.pickle"):
         
         super().__init__(processor_file)
-        self.Species_Lists = Custom_IO.load_pickle("HT_DRX.pickle")
+        self.Species_Lists = Custom_IO.load_pickle(HTDRXpickle)
         self.Species_Lists.pop('Energy_All')
         
         self.comp_Li = comp_Li

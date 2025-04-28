@@ -35,8 +35,8 @@ class Processor_Maker():
 
         self.cell_size = 4*a*b*c
         
-        print("This instance of Processor_Maker can build processors for orthogonal cells.") 
-        print("Please pass even numbers for a,b and c dimensions if you intend to calculate Spinel order parameter.")
+        #print("This instance of Processor_Maker can build processors for orthogonal cells.") 
+        #print("Please pass even numbers for a,b and c dimensions if you intend to calculate Spinel order parameter.")
         print(f"The number of anion sites in the cell that the current instance will build = {self.cell_size}")
         
         transformer = np.array([[-1, 1, 1],
@@ -64,7 +64,7 @@ class Processor_Maker():
 
         test_occu = [0 for x in range(4*self.cell_size)]
         
-        print(composite.compute_property(np.array(test_occu,dtype=np.int32))[0])
+        #print(composite.compute_property(np.array(test_occu,dtype=np.int32))[0])
 
         Processor_filename = 'Processor_'+str(self.cell_size)+'_O.pickle'
         

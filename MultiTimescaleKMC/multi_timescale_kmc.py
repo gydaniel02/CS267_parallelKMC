@@ -31,7 +31,7 @@ class Multi_Time_Scale_KMC(Common_Class):
         
     """
     
-    def __init__(self, T_KMC: int, traj_steps: int, processor_file: str, RT_CMC_results_file:str = "Delithiated_RT_DRX.pickle"):    #, disorder_fraction
+    def __init__(self, T_KMC: int, traj_steps: int, processor_file: str, EVOFILE: str, RT_CMC_results_file:str = "Delithiated_RT_DRX.pickle"):    #, disorder_fraction
         
         super().__init__(processor_file)
         
@@ -61,7 +61,7 @@ class Multi_Time_Scale_KMC(Common_Class):
         #self.Redox_Neighbors = Redox_Center_Calculator()
         
         self.Conf = defaultdict(dict)           
-        self.evolution_filename = f"Evolution_{self.T_KMC}K.pickle"
+        self.evolution_filename = EVOFILE
         self.Time = 0 
         self.step_file_name = "Step_number.txt"
 
@@ -140,7 +140,7 @@ class Multi_Time_Scale_KMC(Common_Class):
         the_hop, encoding = self.Hop_Finder()                     #The TM Hop energy change was updated
         self.Write_Evolution_File(s, the_hop, encoding)                   #encoding is for keeping track of the mechanism
         self.Hop_Executer(the_hop, encoding)  
-        Custom_IO.write_step_file(s, self.step_file_name)
+        #Custom_IO.write_step_file(s, self.step_file_name)
         
     def Time_Advancement(self):
         
@@ -159,7 +159,8 @@ class Multi_Time_Scale_KMC(Common_Class):
         """
         Method to find the hop to be executed from a the dictionary All_Hops attribute of all possible hops.
         """
-
+        if not self.All_Hops['Activation_Barriers']:
+            return {-1:(0,0)},-1
         hop_probs = np.exp(-(np.array(self.All_Hops['Activation_Barriers']))/(self.kB*self.T_KMC))
         probs = [np.sum(hop_probs[0:i+1])/np.sum(hop_probs) for i in range(len(hop_probs))]
         r = random.uniform(0, 1)
@@ -185,7 +186,7 @@ class Multi_Time_Scale_KMC(Common_Class):
         
         if s%20==0:
             
-            print("Trajectory Step Number:  " + str(s) + "\n")
+            ## print("Trajectory Step Number:  " + str(s) + "\n")
             
             self.Conf[s] = {
                 'Mn2_l':self.Species_Lists['Mn2'].copy(),
@@ -235,53 +236,53 @@ class Multi_Time_Scale_KMC(Common_Class):
             the_hop (dict): information for regarding the hop occuring
             encoding (int): code for the type of hop occuring
         """
-        
-        tm, vac = the_hop[encoding]
+        if encoding != -1: 
+            tm, vac = the_hop[encoding]
 
-        if encoding in self.hop_types["mn3_mn3"]:                              ### Mn3+ ----> Mn3+
+            if encoding in self.hop_types["mn3_mn3"]:                              ### Mn3+ ----> Mn3+
 
-            idx_Mn3 = self.Species_Lists['Mn3'].index(tm)
-            self.Species_Lists['Mn3'][idx_Mn3] = vac
+                idx_Mn3 = self.Species_Lists['Mn3'].index(tm)
+                self.Species_Lists['Mn3'][idx_Mn3] = vac
 
-            post_hop_specie = self.Mn3
+                post_hop_specie = self.Mn3
 
-            if encoding in [1,7]:
-                self.Species_Lists['Mn3_oct'].remove(tm)
-                self.Species_Lists['Mn3_tet'].append(vac)
-            elif encoding in [2,8]:
-                self.Species_Lists['Mn3_tet'].remove(tm)
-                self.Species_Lists['Mn3_oct'].append(vac)               
+                if encoding in [1,7]:
+                    self.Species_Lists['Mn3_oct'].remove(tm)
+                    self.Species_Lists['Mn3_tet'].append(vac)
+                elif encoding in [2,8]:
+                    self.Species_Lists['Mn3_tet'].remove(tm)
+                    self.Species_Lists['Mn3_oct'].append(vac)               
 
-        if encoding in self.hop_types["mn2_mn2"]:                              ### Mn2+ ----> Mn2+
+            if encoding in self.hop_types["mn2_mn2"]:                              ### Mn2+ ----> Mn2+
 
-            idx_Mn2 = self.Species_Lists['Mn2'].index(tm)
-            self.Species_Lists['Mn2'][idx_Mn2] = vac
+                idx_Mn2 = self.Species_Lists['Mn2'].index(tm)
+                self.Species_Lists['Mn2'][idx_Mn2] = vac
 
-            post_hop_specie = self.Mn2
+                post_hop_specie = self.Mn2
 
-            if encoding in [3, 9, 11]:
-                self.Species_Lists['Mn2_oct'].remove(tm)
-                self.Species_Lists['Mn2_tet'].append(vac)
-            elif encoding in [4, 10, 12]:
-                self.Species_Lists['Mn2_tet'].remove(tm)
-                self.Species_Lists['Mn2_oct'].append(vac)               
+                if encoding in [3, 9, 11]:
+                    self.Species_Lists['Mn2_oct'].remove(tm)
+                    self.Species_Lists['Mn2_tet'].append(vac)
+                elif encoding in [4, 10, 12]:
+                    self.Species_Lists['Mn2_tet'].remove(tm)
+                    self.Species_Lists['Mn2_oct'].append(vac)               
 
-        if encoding in self.hop_types["mn4_mn4"]:
-            idx_Mn = self.Species_Lists['Mn4'].index(tm)
-            self.Species_Lists['Mn4'][idx_Mn] = vac
+            if encoding in self.hop_types["mn4_mn4"]:
+                idx_Mn = self.Species_Lists['Mn4'].index(tm)
+                self.Species_Lists['Mn4'][idx_Mn] = vac
 
-            post_hop_specie = self.Mn4
+                post_hop_specie = self.Mn4
 
-        if encoding in self.hop_types["ti4_ti4"]:
-            idx_Ti = self.Species_Lists['Ti4'].index(tm)
-            self.Species_Lists['Ti4'][idx_Ti] = vac
+            if encoding in self.hop_types["ti4_ti4"]:
+                idx_Ti = self.Species_Lists['Ti4'].index(tm)
+                self.Species_Lists['Ti4'][idx_Ti] = vac
 
-            post_hop_specie = self.Ti4
+                post_hop_specie = self.Ti4
 
-        self.occ[tm] = self.site_encodings[tm].index(self.Vac)
-        self.occ[vac] = self.site_encodings[vac].index(post_hop_specie)
+            self.occ[tm] = self.site_encodings[tm].index(self.Vac)
+            self.occ[vac] = self.site_encodings[vac].index(post_hop_specie)
 
-        self.Li_Vac_Updater(tm, vac)    
+            self.Li_Vac_Updater(tm, vac)    
 
     def Barrier_Calculator(self, kra: float, mn: int, vac: int, end1: Species, ec: int) -> dict:
 

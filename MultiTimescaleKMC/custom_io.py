@@ -2,6 +2,10 @@ import os
 import pickle
 from smol.moca import CompositeProcessor
 
+
+
+
+
 class Custom_IO:
     
     """
@@ -32,7 +36,8 @@ class Custom_IO:
 
     @staticmethod
     def load_processor(Processor_filename):
-        with open(Processor_filename, 'rb') as handle:
+        filepath = os.path.join(os.path.dirname(__file__), Processor_filename)
+        with open(filepath, 'rb') as handle:
             return CompositeProcessor.from_dict(pickle.load(handle))
             
     @staticmethod        

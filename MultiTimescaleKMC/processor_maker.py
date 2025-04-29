@@ -3,9 +3,13 @@ from MultiTimescaleKMC.custom_io import Custom_IO
 import numpy as np
 from smol.cofe import ClusterExpansion
 from smol.moca.processor import EwaldProcessor, CompositeProcessor,ClusterDecompositionProcessor
+import os
 
-filepath = 'MultiTimescaleKMC/wdr_74_3.json'
+filepath = os.path.join(os.path.dirname(__file__), "wdr_74_3.json")
 with open(filepath) as fin:
+
+# filepath = 'MultiTimescaleKMC/wdr_74_3.json'
+# with open(filepath) as fin:
     ce = ClusterExpansion.from_dict(json.load(fin))
 
 interact_tensors = ce.cluster_interaction_tensors

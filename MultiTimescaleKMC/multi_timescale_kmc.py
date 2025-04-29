@@ -5,10 +5,20 @@ import numpy as np
 from MultiTimescaleKMC.custom_io import Custom_IO
 from pymatgen.core import Species
 from collections import defaultdict,namedtuple
-from MultiTimescaleKMC.fast_processes import Fast_Processes_MC
+from MultiTimescaleKMC.fast_processes import Fast_Processes_MC #lithium shuffling
 from MultiTimescaleKMC.common_mc_initialization import Common_Class
 from MultiTimescaleKMC.initial_structures import Initial_Structure_Makers
 from MultiTimescaleKMC.local_structure_details import Local_Structure_Details
+import time
+
+def timer_decorator(func):
+    def wrapper(*args, **kwargs):
+        start_time = time.time()
+        result = func(*args, **kwargs)
+        end_time = time.time()
+        print(f"Function {func.__name__} took {end_time - start_time} seconds to execute.")
+        return result
+    return wrapper
 
 class Multi_Time_Scale_KMC(Common_Class):
     
@@ -30,30 +40,30 @@ class Multi_Time_Scale_KMC(Common_Class):
         n_atoms (int): Total number of atoms in the structure
         
     """
-    
-    def __init__(self, T_KMC: int, traj_steps: int, processor_file: str, RT_CMC_results_file:str = "Delithiated_RT_DRX.pickle"):    #, disorder_fraction
-        
+    @timer_decorator
+    def __init__(self, T_KMC: int, traj_steps: int, processor_file: str, EVOFILE: str, RT_CMC_results_file:str = "Delithiated_RT_DRX.pickle"):    #, disorder_fraction
         super().__init__(processor_file)
-        
+        ### Load Species Lists from RT_CMC_results_file, removing energy history
         self.Species_Lists = Custom_IO.load_pickle(RT_CMC_results_file)         #You should have this file within the current directory
         self.Species_Lists.pop('Energy_All')
         self.Species_Lists["Mn2"]=[]
         self.Species_Lists["O2"]=self.indices['O2']
+        ### Defines composite species sets
         self.Species_Lists['Li_Vac'] = self.Species_Lists['Vac'].copy()+self.Species_Lists['Li'].copy()
+        ### Counts number of atoms excluding Li_Vac and Vac
         self.n_atoms = np.sum([len(self.Species_Lists[species]) for species in self.Species_Lists if (species!='Li_Vac') and (species!='Vac')])
 
         self.Tet_Oct_Updater()
-        
-        self.spec_type = [self.Li, self.Vac, self.Mn3, self.Mn4, self.Ti4, self.Mn2, self.O2]
-
+        ### Update which sites are in tet and oct based on the Common Class definition of indices
+        self.spec_type = [self.Li, self.Vac, self.Mn3, self.Mn4, self.Ti4, self.Mn2, self.O2] #TODO: this is only used for Occupancy Resetter
         self.occ = self.Occupancy_Resetter()
         self.energy = self.processor.compute_property(self.occ)[0]
         self.av_energy = 0
         self.Energy_All = np.array([])
         
         self.T_KMC = T_KMC
-        self.e_cut = 6.96*10**-3 * self.T_KMC
-        self.T_sample = 2000
+        self.e_cut = 6.96*10**-3 * self.T_KMC #TODO: what is this used for??
+        self.T_sample = 2000 #TODO: is this different than T_KMC. why?
         
         self.traj_steps = traj_steps
         #self.disorder_fraction = disorder_fraction
@@ -61,7 +71,7 @@ class Multi_Time_Scale_KMC(Common_Class):
         #self.Redox_Neighbors = Redox_Center_Calculator()
         
         self.Conf = defaultdict(dict)           
-        self.evolution_filename = f"Evolution_{self.T_KMC}K.pickle"
+        self.evolution_filename = EVOFILE
         self.Time = 0 
         self.step_file_name = "Step_number.txt"
 
@@ -80,6 +90,7 @@ class Multi_Time_Scale_KMC(Common_Class):
         
         BarrierParams = namedtuple("BarrierParams", ["kra", "end_state", "encoding"])
         
+        # based off of number of vacancies adjacent, species name. Why Mn4 and Ti4 included?
         self.barrier_map = {
             "Tri-Vac": {
                 "Mn3_oct": BarrierParams(0.67, self.Mn3, 1),
@@ -107,7 +118,8 @@ class Multi_Time_Scale_KMC(Common_Class):
             "mn4_mn4": [5],
             "ti4_ti4": [6]
         }
-    
+       
+    @timer_decorator
     def run_KMC(self):
         
         """
@@ -119,11 +131,15 @@ class Multi_Time_Scale_KMC(Common_Class):
         
         Fast_Processes = Fast_Processes_MC()
         for s in range(self.traj_steps):    
+            start_time1 = time.time()
             Fast_Processes.Select_Fast_Configuration(self, s)      #JUST TO PROVE THAT WE HAVE DONE OUR DUE DILLIGENCE
+            end_time1 = time.time()
+            print(f"Function Fast_Processes.Select_Fast_Configuration took {end_time1 - start_time1} seconds to execute.")
             self.Hop(s)
-            if (s!=0) and (s%2000==0):
+            if (s!=0) and (s%2000==0): #TODO: probably not needed.
                 self.plot_energy_evolution()
-        
+    
+    @timer_decorator
     def Hop(self, s: int):
         
         """
@@ -141,37 +157,45 @@ class Multi_Time_Scale_KMC(Common_Class):
         self.Write_Evolution_File(s, the_hop, encoding)                   #encoding is for keeping track of the mechanism
         self.Hop_Executer(the_hop, encoding)  
         Custom_IO.write_step_file(s, self.step_file_name)
-        
+
+    @timer_decorator  
     def Time_Advancement(self):
         
         """
         Method to advance the time associated with the TM hop. 
         """
+        #Gillespie method=first-reaction method, exponential distribution of waiting times in Poisson process
         
         attempt_frequency = 1e13
 
         rate_consts = np.exp(-np.array(self.All_Hops['Activation_Barriers'])/(self.kB*self.T_KMC))*attempt_frequency
-        r_time = random.uniform(0, 1)
+        r_time = random.uniform(0, 1) #TODO: this is not deterministic, need to keep deterministic for accuracy checks.
         self.Time = self.Time - (np.log(r_time)/np.sum(rate_consts))
         
+    @timer_decorator
     def Hop_Finder(self) -> tuple[dict , int]:
         
         """
         Method to find the hop to be executed from a the dictionary All_Hops attribute of all possible hops.
         """
+        if not self.All_Hops['Activation_Barriers']:
+            return {-1:(0,0)},-1
 
         hop_probs = np.exp(-(np.array(self.All_Hops['Activation_Barriers']))/(self.kB*self.T_KMC))
-        probs = [np.sum(hop_probs[0:i+1])/np.sum(hop_probs) for i in range(len(hop_probs))]
-        r = random.uniform(0, 1)
-        idx = probs.index([i for i in probs if i > r][0])
+        probs = [np.sum(hop_probs[0:i+1])/np.sum(hop_probs) for i in range(len(hop_probs))] 
+        #constructs cumulative probability distribution, we can probably improve this algorithm ourselves
+        
+        r = random.uniform(0, 1) #TODO: this is not deterministic, need to keep deterministic for accuracy checks.
+        idx = probs.index([i for i in probs if i > r][0]) #can probably also speed up this lookup function??
 
         the_hop = self.All_Hops['Hops'][idx]
-        encoding = list(the_hop.keys())[0]
+        encoding = list(the_hop.keys())[0] #why only the first encoding??
 
-        self.energy += self.All_Hops['Energy_Changes'][idx]
+        self.energy += self.All_Hops['Energy_Changes'][idx] #this isnt super data local 
 
         return the_hop, encoding
         
+    @timer_decorator
     def Write_Evolution_File(self, s: int, the_hop: dict, encoding: int):            
 
         """
@@ -208,7 +232,8 @@ class Multi_Time_Scale_KMC(Common_Class):
                 'Hop': the_hop[encoding],
                 'Encoding': encoding
             }
-        
+
+    @timer_decorator  
     def Li_Vac_Updater(self, mn: int, vac: int):
 
         """
@@ -226,6 +251,7 @@ class Multi_Time_Scale_KMC(Common_Class):
         idx_Vac = self.Species_Lists['Vac'].index(vac)
         self.Species_Lists['Vac'][idx_Vac] = mn 
     
+    @timer_decorator
     def Hop_Executer(self, the_hop: dict, encoding: int):
         
         """
@@ -235,54 +261,55 @@ class Multi_Time_Scale_KMC(Common_Class):
             the_hop (dict): information for regarding the hop occuring
             encoding (int): code for the type of hop occuring
         """
-        
-        tm, vac = the_hop[encoding]
+        if encoding != -1: 
+            tm, vac = the_hop[encoding]
 
-        if encoding in self.hop_types["mn3_mn3"]:                              ### Mn3+ ----> Mn3+
+            if encoding in self.hop_types["mn3_mn3"]:                              ### Mn3+ ----> Mn3+
 
-            idx_Mn3 = self.Species_Lists['Mn3'].index(tm)
-            self.Species_Lists['Mn3'][idx_Mn3] = vac
+                idx_Mn3 = self.Species_Lists['Mn3'].index(tm)
+                self.Species_Lists['Mn3'][idx_Mn3] = vac
 
-            post_hop_specie = self.Mn3
+                post_hop_specie = self.Mn3
 
-            if encoding in [1,7]:
-                self.Species_Lists['Mn3_oct'].remove(tm)
-                self.Species_Lists['Mn3_tet'].append(vac)
-            elif encoding in [2,8]:
-                self.Species_Lists['Mn3_tet'].remove(tm)
-                self.Species_Lists['Mn3_oct'].append(vac)               
+                if encoding in [1,7]:
+                    self.Species_Lists['Mn3_oct'].remove(tm)
+                    self.Species_Lists['Mn3_tet'].append(vac)
+                elif encoding in [2,8]:
+                    self.Species_Lists['Mn3_tet'].remove(tm)
+                    self.Species_Lists['Mn3_oct'].append(vac)               
 
-        if encoding in self.hop_types["mn2_mn2"]:                              ### Mn2+ ----> Mn2+
+            if encoding in self.hop_types["mn2_mn2"]:                              ### Mn2+ ----> Mn2+
 
-            idx_Mn2 = self.Species_Lists['Mn2'].index(tm)
-            self.Species_Lists['Mn2'][idx_Mn2] = vac
+                idx_Mn2 = self.Species_Lists['Mn2'].index(tm)
+                self.Species_Lists['Mn2'][idx_Mn2] = vac
 
-            post_hop_specie = self.Mn2
+                post_hop_specie = self.Mn2
 
-            if encoding in [3, 9, 11]:
-                self.Species_Lists['Mn2_oct'].remove(tm)
-                self.Species_Lists['Mn2_tet'].append(vac)
-            elif encoding in [4, 10, 12]:
-                self.Species_Lists['Mn2_tet'].remove(tm)
-                self.Species_Lists['Mn2_oct'].append(vac)               
+                if encoding in [3, 9, 11]:
+                    self.Species_Lists['Mn2_oct'].remove(tm)
+                    self.Species_Lists['Mn2_tet'].append(vac)
+                elif encoding in [4, 10, 12]:
+                    self.Species_Lists['Mn2_tet'].remove(tm)
+                    self.Species_Lists['Mn2_oct'].append(vac)               
 
-        if encoding in self.hop_types["mn4_mn4"]:
-            idx_Mn = self.Species_Lists['Mn4'].index(tm)
-            self.Species_Lists['Mn4'][idx_Mn] = vac
+            if encoding in self.hop_types["mn4_mn4"]:
+                idx_Mn = self.Species_Lists['Mn4'].index(tm)
+                self.Species_Lists['Mn4'][idx_Mn] = vac
 
-            post_hop_specie = self.Mn4
+                post_hop_specie = self.Mn4
 
-        if encoding in self.hop_types["ti4_ti4"]:
-            idx_Ti = self.Species_Lists['Ti4'].index(tm)
-            self.Species_Lists['Ti4'][idx_Ti] = vac
+            if encoding in self.hop_types["ti4_ti4"]:
+                idx_Ti = self.Species_Lists['Ti4'].index(tm)
+                self.Species_Lists['Ti4'][idx_Ti] = vac
 
-            post_hop_specie = self.Ti4
+                post_hop_specie = self.Ti4
 
-        self.occ[tm] = self.site_encodings[tm].index(self.Vac)
-        self.occ[vac] = self.site_encodings[vac].index(post_hop_specie)
+            self.occ[tm] = self.site_encodings[tm].index(self.Vac)
+            self.occ[vac] = self.site_encodings[vac].index(post_hop_specie)
 
-        self.Li_Vac_Updater(tm, vac)    
+            self.Li_Vac_Updater(tm, vac)    
 
+    @timer_decorator
     def Barrier_Calculator(self, kra: float, mn: int, vac: int, end1: Species, ec: int) -> dict:
 
         """
@@ -305,6 +332,7 @@ class Multi_Time_Scale_KMC(Common_Class):
         barrier = (change/2)+ kra
         self.All_Hops['Activation_Barriers'].append(barrier)
 
+    @timer_decorator
     def Redox_Center_Calculator(self, Redox_cutoff_dist=3):
     
         Redox_Neighbors = defaultdict(list)
@@ -317,7 +345,9 @@ class Multi_Time_Scale_KMC(Common_Class):
     
         return Redox_Neighbors
     
+    @timer_decorator
     def All_Possible_Hops(self):
+        #TODO this is the main thing
         
         """
         Method to list all possible Transition metal hops.
@@ -336,19 +366,41 @@ class Multi_Time_Scale_KMC(Common_Class):
             "Mono-Vac":{},
         }
         
+        # Find the mobile ions. Are these lists static or only changing briefly? unfortunately, no because of Li relaxation.
+        # However, I would expect that the Mn and O stay stationary while only the Li moves during the CMC
         Mobile_Mn_tet = self.Species_Lists["Mn2_tet"]+self.Species_Lists["Mn3_tet"]
         Mobile_Mn_oct = self.Species_Lists["Mn2_oct"]+self.Species_Lists["Mn3_oct"]
         Mobile_Mn = self.Species_Lists['Mn2']+self.Species_Lists['Mn3']
 
         tet_vac = [x for x in self.Species_Lists['Vac'] if x in self.indices['tet']]
         oct_vac = [x for x in self.Species_Lists['Vac'] if x in self.indices['oct']]
+        print(f"There are {len(tet_vac)} tet_vac and {len(oct_vac)} vacancies = {sum([len(tet_vac), len(oct_vac)])} total vacancies.")
+        print(f"There are {len(Mobile_Mn_tet)} Mn_tet and {len(Mobile_Mn_oct)} Mobile_Mn_oct = {sum([len(Mobile_Mn_oct), len(Mobile_Mn_tet)])} total vacancies.")
         Pristine_oct_vacs = []
+        """✅ Can be parallelized (with some effort):
 
+Memory independent per iteration → each o is processed independently.
+
+Requires self.nns[o] and self.Species_Lists['Vac'] to be passed in a numba-friendly format (e.g., np.ndarray, set).
+
+Appending to Pristine_oct_vacs inside parallel code needs to be done with a temporary buffer per thread and reduced afterward."""
         for o in oct_vac:
             oct_pristine_vacs = len([x for x in self.nns[o] if x in self.Species_Lists['Vac']])
             if oct_pristine_vacs==8:
                 Pristine_oct_vacs.append(o)
         
+
+        """⚠️ Not trivially parallelizable:
+
+Calls self.Mechanism_Update() which likely involves mutable state.
+
+Writes to shared dictionary (self.Hop_Mechanisms), which is not safe in parallel.
+
+You’d need to refactor the loop to first collect data in thread-safe containers, then apply updates sequentially.
+
+Verdict: Rewrite for two-pass logic (gather → update) if you want to parallelize.
+
+"""
         for vac in tet_vac:                    #Differentiating vacant tetraherdrals for hopping mechanism
             
             v_int = len([x for x in self.nns[vac] if x in self.Species_Lists['Vac']])
@@ -384,6 +436,13 @@ class Multi_Time_Scale_KMC(Common_Class):
                     for v_oct in v_octs:                
                         self.Hop_Mechanisms["Tri-Vac"][FS_Tis[0]].append(v_oct)
         
+        """⚠️ Same situation as above:
+
+Dependent on self.nns[mn], Species_Lists, and writes to Hop_Mechanisms.
+
+Not trivially parallelizable without extracting state updates from loop.
+
+Verdict: Can be parallelized only if split into analysis + assignment phases."""
         for mn in Mobile_Mn_tet:               #Differentiating Mn tetraherdrals for hopping mechanism
             FS_Vacs = [x for x in self.nns[mn] if x in self.Species_Lists['Vac']]
             if (len(FS_Vacs)==4):                                   #Trivac
@@ -397,6 +456,18 @@ class Multi_Time_Scale_KMC(Common_Class):
                 if li_int==2:
                     self.Hop_Mechanisms["Mono-Vac"][mn] = FS_Vacs 
 
+
+        """🚫 Not directly parallelizable:
+
+Deeply nested with heterogeneous function calls.
+
+Calls Barrier_Calculator, likely updating shared state.
+
+Dictionary and dynamic function calling don’t map cleanly to GPU/parallel execution.
+
+Verdict: You could precompute a flattened list of (mn, vac, mechanism) and pass it to a parallel kernel — but this requires restructuring."""
+        print(f"Number of mechanisms: {len(self.Hop_Mechanisms)}, Number of Mn considered {sum([len(self.Hop_Mechanisms[mech]) for mech in self.Hop_Mechanisms])}")
+        
         for mechanism in self.Hop_Mechanisms:
             for mn in self.Hop_Mechanisms[mechanism]:
                 for vac in self.Hop_Mechanisms[mechanism][mn]:
@@ -404,18 +475,21 @@ class Multi_Time_Scale_KMC(Common_Class):
                         if mn in self.Species_Lists[cation_description]:  # Dynamically fetch the correct set (Mn3_oct, etc.) #globals()[mn_type]
                             self.Barrier_Calculator(hop_info.kra, int(mn), vac, hop_info.end_state, hop_info.encoding)
                             break  # Exit the loop once a match is found
-
+    
+    @timer_decorator
     def Mechanism_Update(self, tm, mechanism):
         
         if tm not in self.Hop_Mechanisms[mechanism]:
             self.Hop_Mechanisms[mechanism][tm]=[]
 
+    @timer_decorator
     def Species_Indices(self):
         
         unwanted_lists = ['Li_Vac', "Mn3_tet", "Mn3_oct", "Mn2_tet", "Mn2_oct"]
         spec_indices = [self.Species_Lists[species] for species in self.Species_Lists if species not in unwanted_lists]
         return spec_indices
-
+    
+    @timer_decorator
     def Tet_Oct_Updater(self):
 
         self.Species_Lists["Mn3_tet"] = [x for x in self.Species_Lists['Mn3'] if x in self.indices['tet']]

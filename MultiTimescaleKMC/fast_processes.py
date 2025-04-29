@@ -146,8 +146,14 @@ class Fast_Processes_MC():
         elif (len(self_kmc.Species_Lists['Mn2'])==0) and (len(self_kmc.Species_Lists['Mn3'])>0) and (len(Fast_Configs['Mn3_oct'])==0):
             swaps = [0]
 
+        #elif (len(self_kmc.Species_Lists['Mn2'])==0) and (len(Fast_Configs['Mn3_oct'])>0):     ###CORRECT
+            #swaps = [0, 2, 4]
+
         elif (len(self_kmc.Species_Lists['Mn2'])==0) and (len(Fast_Configs['Mn3_oct'])>0):     ###CORRECT
-            swaps = [0, 2, 4]
+            if len(Fast_Configs['Mn3_oct']) == 1:
+                swaps = [0, 2]
+            else: 
+                swaps = [0, 2, 4]
 
         elif (len(self_kmc.Species_Lists['Mn2'])>0) and (len(Fast_Configs['Mn2_oct'])==0) and (len(self_kmc.Species_Lists['Mn3'])==0):
             swaps = [0, 5]
@@ -162,10 +168,16 @@ class Fast_Processes_MC():
             swaps = [0, 1, 3, 5]
 
         elif (len(self_kmc.Species_Lists['Mn2'])>0) and (len(Fast_Configs['Mn2_oct'])==0) and (len(Fast_Configs['Mn3_oct'])>0):
-            swaps = [0, 1, 2, 4, 5]
+            if len(Fast_Configs['Mn3_oct']) == 1:
+                swaps = [0, 1, 2, 5]
+            else: 
+                swaps = [0, 1, 2, 4, 5]
 
         elif (len(Fast_Configs['Mn2_oct'] )>0) and (len(Fast_Configs['Mn3_oct'])>0):
-            swaps = [0, 1, 2, 3, 4, 5]
+            if len(Fast_Configs['Mn3_oct']) == 1:
+                swaps = [0, 1, 2, 3, 5]
+            else: 
+                swaps = [0, 1, 2, 3, 4, 5]
 
         return swaps
     

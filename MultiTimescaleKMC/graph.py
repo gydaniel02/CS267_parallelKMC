@@ -19,7 +19,7 @@ class Node():
         self.index = index
         self.species = specie
         self.polyhedron = polyhedron
-    }
+    
 
 class Graph():
     def __init__(self, processor_file: str):
@@ -47,10 +47,9 @@ class Graph():
         self.nns = Local_Structure_Details.Nearest_Neighbor_Calculator(self.processor, self.indices)
 
         # Graph objects
-    def make_graph(self,structure) {
+    def make_graph(self,structure):
         """
         Makes graph
         """
-    }
 
     

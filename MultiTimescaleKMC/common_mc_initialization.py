@@ -5,6 +5,7 @@ import matplotlib.pyplot as plt
 from pymatgen.core import Species
 import smol.cofe.space.domain as ForVac
 from MultiTimescaleKMC.local_structure_details import Local_Structure_Details
+import time
 
 class Common_Class():
     
@@ -45,11 +46,25 @@ class Common_Class():
         self.kB = 8.617*10**-5
         
         self.processor = Custom_IO.load_processor(processor_file)
-        
+        start = time.time()
         self.n_sites = self.processor.num_sites
+        end = time.time()
+        print(f"Common_Class self.processor.num_sites took {end - start} seconds")
+        
+        start = time.time()
         self.site_encodings = self.processor.allowed_species
+        end = time.time()
+        print(f"Common_Class self.processor.allowed_species took {end - start} seconds")
+        
+        start = time.time()       
         self.indices = Local_Structure_Details.struct_indicies(self.processor)
+        end = time.time()
+        print(f"Common_Class Local_Structure_Details.struct_indicies(self.processor) took {end - start} seconds")
+        
+        start = time.time()
         self.nns = Local_Structure_Details.Nearest_Neighbor_Calculator(self.processor, self.indices)
+        end = time.time()
+        print(f"Common_Class Local_Structure_Details.Nearest_Neighbor_Calculator(self.processor, self.indices) took {end - start} seconds")
         
     def Occupancy_Resetter(self, spec_type = None, spec_indices = None):
 

@@ -59,12 +59,12 @@ class Processor_Maker():
         
         cd_processor = ClusterDecompositionProcessor(self.ce.cluster_subspace,
                                                      self.sc_matrix, self.interact_tensors)
-        ewald_processor = EwaldProcessor(self.ce.cluster_subspace, self.sc_matrix,
-                                         self.ce.cluster_subspace.external_terms[0],
-                                         coefficient=self.ce.coefs[-1])
+        # ewald_processor = EwaldProcessor(self.ce.cluster_subspace, self.sc_matrix,
+        #                                  self.ce.cluster_subspace.external_terms[0],
+        #                                  coefficient=self.ce.coefs[-1])
         composite = CompositeProcessor(self.ce.cluster_subspace, self.sc_matrix)
         composite.add_processor(cd_processor)
-        composite.add_processor(ewald_processor)
+        # composite.add_processor(ewald_processor)
 
         test_occu = [0 for x in range(4*self.cell_size)]
         

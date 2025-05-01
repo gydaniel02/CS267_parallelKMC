@@ -42,9 +42,18 @@ class Multi_Time_Scale_KMC(Common_Class):
     """
     @timer_decorator
     def __init__(self, T_KMC: int, traj_steps: int, processor_file: str, EVOFILE: str, RT_CMC_results_file:str = "Delithiated_RT_DRX.pickle"):    #, disorder_fraction
+        
+        start_time = time.time()
         super().__init__(processor_file)
+        end_time = time.time()
+        print(f"super().__init__(processor_file) takes {end_time - start_time} seconds")
         ### Load Species Lists from RT_CMC_results_file, removing energy history
+        start_time = time.time()
         self.Species_Lists = Custom_IO.load_pickle(RT_CMC_results_file)         #You should have this file within the current directory
+        end_time = time.time()
+        print(f"Custom_IO.load_pickle(RT_CMC_results_file) takes {end_time - start_time} seconds")
+        
+        start_time = time.time()
         self.Species_Lists.pop('Energy_All')
         self.Species_Lists["Mn2"]=[]
         self.Species_Lists["O2"]=self.indices['O2']
@@ -52,12 +61,26 @@ class Multi_Time_Scale_KMC(Common_Class):
         self.Species_Lists['Li_Vac'] = self.Species_Lists['Vac'].copy()+self.Species_Lists['Li'].copy()
         ### Counts number of atoms excluding Li_Vac and Vac
         self.n_atoms = np.sum([len(self.Species_Lists[species]) for species in self.Species_Lists if (species!='Li_Vac') and (species!='Vac')])
+        end_time = time.time()
+        print(f"self.Species_Lists and n_atoms takes {end_time - start_time} seconds")
+
 
         self.Tet_Oct_Updater()
         ### Update which sites are in tet and oct based on the Common Class definition of indices
+        start_time = time.time()
         self.spec_type = [self.Li, self.Vac, self.Mn3, self.Mn4, self.Ti4, self.Mn2, self.O2] #TODO: this is only used for Occupancy Resetter
         self.occ = self.Occupancy_Resetter()
-        self.energy = self.processor.compute_property(self.occ)[0]
+        end_time = time.time()
+        print(f"self.spec_type and occ takes {end_time - start_time} seconds")
+
+
+        start_time = time.time()
+        self.energy = self.processor.compute_property(self.occ)[0] #Daniel hypothesizes this takes a lot of time
+        # is there a way we can just put this in the earlier steps?
+        end_time = time.time()
+        print(f"self.compute_property(energy) takes {end_time - start_time} seconds")
+
+
         self.av_energy = 0
         self.Energy_All = np.array([])
         
@@ -75,6 +98,8 @@ class Multi_Time_Scale_KMC(Common_Class):
         self.Time = 0 
         self.step_file_name = "Step_number.txt"
 
+
+        start_time = time.time()
         self.All_Hops = {
             'counter':-1,
             'Hops':defaultdict(dict),
@@ -118,6 +143,8 @@ class Multi_Time_Scale_KMC(Common_Class):
             "mn4_mn4": [5],
             "ti4_ti4": [6]
         }
+        end_time = time.time()
+        print(f"initializing maps takes {end_time - start_time} seconds")
        
     @timer_decorator
     def run_KMC(self):

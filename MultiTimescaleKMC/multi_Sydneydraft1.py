@@ -229,33 +229,33 @@ def Species_Indices(Species_Lists):
 # helper function for runner KMC
 def Occupancy_Resetter(processor, spec_indices = None, spec_type = None):
 
-        """
-        Method to calculate the occupancies of all sites within the structure, given the types of species in the structure and their 
-        corresponding indices.
+    """
+    Method to calculate the occupancies of all sites within the structure, given the types of species in the structure and their 
+    corresponding indices.
 
-        Args:
-            spec_type (list[Species | Vacancy], optional): List of Species present in the structure. Deaults to stealing the spec_type 
-                                                           attribute from its child class (see if statement below).
-            spec_indices (list[list[int]], optional): A 2D list of integer type representing indices in the supercell structure. Indices 
-                                                      in the inner lists correspond to the Species defined in spec_type. First dimension 
-                                                      of spec_indices and length of spec_indices must be the same. Deaults to building it 
-                                                      using the Species_Indices method of its child class (see if statement below).
-        
-        """
-        
-        species_list = [0 for x in range(n_sites)]
-        
-        if (spec_type==None) and (spec_indices==None):
-            spec_indices = Species_Indices()
-            spec_type = spec_type
+    Args:
+        spec_type (list[Species | Vacancy], optional): List of Species present in the structure. Deaults to stealing the spec_type 
+                                                        attribute from its child class (see if statement below).
+        spec_indices (list[list[int]], optional): A 2D list of integer type representing indices in the supercell structure. Indices 
+                                                    in the inner lists correspond to the Species defined in spec_type. First dimension 
+                                                    of spec_indices and length of spec_indices must be the same. Deaults to building it 
+                                                    using the Species_Indices method of its child class (see if statement below).
+    
+    """
+    
+    species_list = [0 for x in range(n_sites)]
+    
+    if (spec_type==None) and (spec_indices==None):
+        spec_indices = Species_Indices()
+        spec_type = spec_type
 
-        for idx, si in enumerate(spec_indices):
-            for ind in si:
-                species_list[ind] = spec_type[idx]
+    for idx, si in enumerate(spec_indices):
+        for ind in si:
+            species_list[ind] = spec_type[idx]
 
-        occ = processor.encode_occupancy(species_list)
+    occ = processor.encode_occupancy(species_list)
 
-        return occ
+    return occ
     
 
 ### GOAL IS TO MAKE THESE DISTRIBUTED TASKS

@@ -92,7 +92,7 @@ def Tet_Oct_Updater(x, indices, tet_True):
     # Species_Lists["Mn3_tet"] = [x for x in Species_Lists['Mn3'] if x in indices['tet']]
     # Species_Lists["Mn3_oct"] = [x for x in Species_Lists['Mn3'] if x in indices['oct']]
     # Species_Lists["Mn2_tet"] = [x for x in Species_Lists['Mn2'] if x in indices['tet']]   
-    # Species_Lists["Mn2_oct"] = [x for x in Species_Lists['Mn2'] if x in self.indices['oct']]
+    # Species_Lists["Mn2_oct"] = [x for x in Species_Lists['Mn2'] if x in indices['oct']]
 
 def fill_species_list_partial(indices, species_value, n_sites):
     partial_list = [0] * n_sites
@@ -205,12 +205,12 @@ def GetHops(TM, nndict, Species_Lists, Mobile_Mntet, Mobile_MnOct, site_encoding
 # #TODO: break apart the issues in what barrier_calculator, barrier_map, Hop_mechanisms look like~
 ## TODO: also make the kra data local
 # 
-#  for mechanism in self.Hop_Mechanisms:
-#             for mn in self.Hop_Mechanisms[mechanism]:
-#                 for vac in self.Hop_Mechanisms[mechanism][mn]:
-#                     for cation_description, hop_info in self.barrier_map[mechanism].items():
-#                         if mn in self.Species_Lists[cation_description]:  # Dynamically fetch the correct set (Mn3_oct, etc.) #globals()[mn_type]
-#                             self.Barrier_Calculator(hop_info.kra, int(mn), vac, hop_info.end_state, hop_info.encoding)
+#  for mechanism in Hop_Mechanisms:
+#             for mn in Hop_Mechanisms[mechanism]:
+#                 for vac in Hop_Mechanisms[mechanism][mn]:
+#                     for cation_description, hop_info in barrier_map[mechanism].items():
+#                         if mn in Species_Lists[cation_description]:  # Dynamically fetch the correct set (Mn3_oct, etc.) #globals()[mn_type]
+#                             Barrier_Calculator(hop_info.kra, int(mn), vac, hop_info.end_state, hop_info.encoding)
 #                             break  # Exit the loop once a match is found
     # Get NN list
     # Count number of vacancies, clarify type of vacancies?
@@ -480,81 +480,84 @@ def main(num_cpus: int, T_KMC: int, traj_steps: int, processor_file: str, EVOFIL
         energy += All_Hops['Energy_Changes'][idx] #this isnt super data local 
 
         #Write Evolution File
+        if s%20==0:
+            print("Trajectory Step Number:  " + str(s) + "\n")
+            Conf[s] = {
+                'Mn2_l':Species_Lists['Mn2'].copy(),
+                'Mn3_l':Species_Lists['Mn3'].copy(),
+                'Mn4_l':Species_Lists['Mn4'].copy(),
+                'Li_l':Species_Lists['Li'].copy(),
+                'Ti_l':Species_Lists['Ti4'].copy(),
+                'Av_Energy':av_energy,
+                'Hop': the_hop[encoding],
+                'Encoding': encoding,
+                'time':Time
+            } 
+            
+            Custom_IO.write_pickle(Conf, evolution_filename)
+
+        else:
+            Conf[s] = {
+                'Av_Energy':av_energy,
+                'time':Time,
+                'Hop': the_hop[encoding],
+                'Encoding': encoding
+            }
+
 
         #Hop executer
-                
+        if encoding != -1: 
+            tm, vac = the_hop[encoding]
 
-        # for TM in TMs:
-        #     Hop_Mechanism = None
-        #     result = None
-        #     the_vac = None
+            if encoding in hop_types["mn3_mn3"]:                              ### Mn3+ ----> Mn3+
 
-        #     nns = get_nearest_neighbors(TM)
+                idx_Mn3 = Species_Lists['Mn3'].index(tm)
+                Species_Lists['Mn3'][idx_Mn3] = vac
 
-        #     nn_vacs = [x for x in nns[TM] if x in Species_Lists["Vac"]]
-        #     num_vac = len(nn_vacs)
+                post_hop_specie = Mn3
 
-        #     ###I AM ASSUMING THAT NN[0] TAKES THE CLOSEST NEIGHBOR OF THE SPECIES TO BE THE CLOSEST VACANCY TO HOP INTO
-        #     if num_vac == 0 or num_vac > 4:
-        #         break
+                if encoding in [1,7]:
+                    Species_Lists['Mn3_oct'].remove(tm)
+                    Species_Lists['Mn3_tet'].append(vac)
+                elif encoding in [2,8]:
+                    Species_Lists['Mn3_tet'].remove(tm)
+                    Species_Lists['Mn3_oct'].append(vac)               
 
-            
-            
-        #     elif TM in Mobile_Mn2_tet+Mobile_Mn3_tet:
-        #         FS_Vacs = nn_vacs #face-sharing vacancies
-        #         the_vac = nn_vacs[0]
-        #         if (num_vac == 4):
-        #             Hop_Mechanism = "Tri-Vac"
-        #             result = FS_vacs
-        #         elif (num_vac == 3):
-        #             li_ct = len([x for x in nns[TM] if x in Species_Lists['Li']])
-        #             if li_ct == 1:
-        #                 Hop_Mechanism = "Di-Vac"
-        #                 result = FS_vacs
-        #         elif num_vac == 2:
-        #             li_ct = len([x for x in nns[TM] if x in Species_Lists['Li']])
-        #             if li_ct == 2:
-        #                 Hop_Mechanism = "Di-Vac"
-        #                 result = FS_vacs
-        #     else: #refers to octahedral transition metals Mn4 and Ti4
-        #         FS_TMs = [x for x in nns[TM] if x in Mobile_Mn2_oct+Mobile_Mn3_oct]
-        #         num_FS_TMs = len(FS_TMs)
-        #         the_vac = nn_vacs[0]
-        #         if (num_vac==3) and (num_FS_TMs==1):    #Trivac
-        #             Hop_Mechanism = "Tri-Vac"
-        #             result = FS_TMs
-        #         elif num_vac==2:
-        #             li_ct = len([x for x in nns[TM] if x in Species_Lists['Li']])
-        #             if (li_ct==1) and (num_FS_TMs==1):
-        #                 Hop_Mechanism = "Di-Vac"
-        #                 result = FS_TMs
-        #         elif num_vac == 1:
-        #             li_ct = len([x for x in nns[TM] if x in Species_Lists['Li']])
-        #             if (li_ct==2) and (num_FS_TMs==1):
-        #                 Hop_Mechanism = "Mono-Vac"
-        #                 result = FS_TMs
-        
-                
+            if encoding in hop_types["mn2_mn2"]:                              ### Mn2+ ----> Mn2+
 
+                idx_Mn2 = Species_Lists['Mn2'].index(tm)
+                Species_Lists['Mn2'][idx_Mn2] = vac
 
-                
+                post_hop_specie = Mn2
 
-        
+                if encoding in [3, 9, 11]:
+                    Species_Lists['Mn2_oct'].remove(tm)
+                    Species_Lists['Mn2_tet'].append(vac)
+                elif encoding in [4, 10, 12]:
+                    Species_Lists['Mn2_tet'].remove(tm)
+                    Species_Lists['Mn2_oct'].append(vac)               
 
+            if encoding in hop_types["mn4_mn4"]:
+                idx_Mn = Species_Lists['Mn4'].index(tm)
+                Species_Lists['Mn4'][idx_Mn] = vac
 
-        possible_hops = 
+                post_hop_specie = Mn4
 
-        # Get time advancement
-        # Get the hop and the encoding
-        # write the evolution file if needed
-        # execute the hop
-        # write hte step file
+            if encoding in hop_types["ti4_ti4"]:
+                idx_Ti = Species_Lists['Ti4'].index(tm)
+                Species_Lists['Ti4'][idx_Ti] = vac
 
+                post_hop_specie = Ti4
 
+            occ[tm] = site_encodings[tm].index(Vac)
+            occ[vac] = site_encodings[vac].index(post_hop_specie)
 
+            # update species lists
+            idx_Vac = Species_Lists['Li_Vac'].index(vac)
+            Species_Lists['Li_Vac'][idx_Vac] = tm
 
-        # if (s!=0) and (s%2000==0): #TODO: probably not needed.
-        #     plot_energy_evolution()
+            idx_Vac = Species_Lists['Vac'].index(vac)
+            Species_Lists['Vac'][idx_Vac] = tm 
 
 
 

@@ -76,3 +76,27 @@ def speciesListToConvenient (speciesdict, key):
         for place in speciesdict[spec]:
             allsites[key[place]] = spec
     return allsites
+    
+def inverse_permutation(key):
+    """
+    Computes the inverse of a permutation.
+
+    Parameters:
+    key (list or array-like): The permutation to be inverted. It must contain all numbers
+                              from 0 to len(key) - 1, in some order.
+
+    Returns:
+    list: The inverse permutation.
+    """
+    # Check if 'key' is a valid permutation
+    n = len(key)
+    if sorted(key) != list(range(n)):
+        raise ValueError("Input must be a valid permutation of numbers from 0 to n-1.")
+
+    reversekey = [0] * n  # Initialize with zeros
+
+    # Populate the inverse permutation
+    for i in range(n):
+        reversekey[key[i]] = i
+
+    return reversekey

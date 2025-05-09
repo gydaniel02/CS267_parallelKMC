@@ -248,3 +248,53 @@ def TetNeighbors ( pos : int ) :
 		]
 	)
 	return neighbors
+	
+def findPosesFromCell ( cell : int ) :
+	"""
+ 	eats cell index and spits out all 12 sites contained in that cell
+ 	"""
+	return [
+			cell * 12, 
+			cell * 12 + 1, 
+			cell * 12 + 2, 
+			cell * 12 + 3, 
+			cell * 12 + 4, 
+			cell * 12 + 5, 
+			cell * 12 + 6, 
+			cell * 12 + 7, 
+			cell * 12 + 8, 
+			cell * 12 + 9, 
+			cell * 12 + 10, 
+			cell * 12 + 11, 
+			]
+
+def findPosesFromRegion ( rx : int, ry : int, rz : int ) :
+	"""
+ 	eats region coordinates and spits out a list of all pos indices corresponding to the region
+ 	"""
+	remx = Nx % regSize
+	remy = Ny % regSize
+	remz = Nz % regSize
+
+	startx = regSize * rx 
+	endx = regSize * (rx + 1) 
+	starty = regSize * ry 
+	endy = regSize * (ry + 1)
+	startz = regSize * rz
+	endz = regSize * (rz + 1)
+	if ((remx != 0) and (rx == Rx - 1)): 
+		endx = startx + remx
+	if ((remy != 0) and (ry == Ry - 1)): 
+		endy = starty + remy
+	if ((remz != 0) and (rz == Rz - 1)): 
+		endz = startz + remz
+	print('x range:', startx, endx)
+	print('y range:', starty, endy)
+	print('z range:', startz, endz)
+	poses = []
+	for nz in range(startz, endz):
+		for ny in range(starty, endy):
+			for nx in range(startx, endx):
+				poses = poses + findPosesFromCell(findCellFromCoords(nx,ny,nz))
+	
+	return poses
